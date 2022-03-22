@@ -12,6 +12,7 @@ module Network.Socket.Buffer (
   , recvBuf
   , recvBufNoWait
   , sendBufMsg
+  , sendBufMsgNoAddr
   , recvBufMsg
   ) where
 
@@ -215,6 +216,46 @@ sendBufMsg s sa bufsizs cmsgs flags = do
         let msgHdr = MsgHdr {
                 msgName    = addrPtr
               , msgNameLen = fromIntegral addrSize
+#if !defined(mingw32_HOST_OS)
+              , msgIov     = iovsPtr
+              , msgIovLen  = fromIntegral iovsLen
+#else
+              , msgBuffer    = wsaBPtr
+              , msgBufferLen = fromIntegral wsaBLen
+#endif
+              , msgCtrl    = castPtr ctrlPtr
+              , msgCtrlLen = fromIntegral ctrlLen
+              , msgFlags   = 0
+              }
+            cflags = fromMsgFlag flags
+        withFdSocket s $ \fd ->
+          with msgHdr $ \msgHdrPtr ->
+            throwSocketErrorWaitWrite s "Network.Socket.Buffer.sendMsg" $
+#if !defined(mingw32_HOST_OS)
+              c_sendmsg fd msgHdrPtr cflags
+#else
+              alloca $ \send_ptr ->
+                c_sendmsg fd msgHdrPtr (fromIntegral cflags) send_ptr nullPtr nullPtr
+#endif
+  return $ fromIntegral sz
+
+-- | Send data to the socket using sendmsg(2).
+sendBufMsgNoAddr
+           :: Socket            -- ^ Socket
+           -> [(Ptr Word8,Int)] -- ^ Data to be sent
+           -> [Cmsg]            -- ^ Control messages
+           -> MsgFlag           -- ^ Message flags
+           -> IO Int            -- ^ The length actually sent
+sendBufMsgNoAddr s bufsizs cmsgs flags = do
+#if !defined(mingw32_HOST_OS)
+  sz <- withIOVec bufsizs $ \(iovsPtr, iovsLen) -> do
+#else
+    withWSABuf bufsizs $ \(wsaBPtr, wsaBLen) -> do
+#endif
+      withCmsgs cmsgs $ \ctrlPtr ctrlLen -> do
+        let msgHdr = MsgHdr {
+                msgName    = nullPtr
+              , msgNameLen = 0
 #if !defined(mingw32_HOST_OS)
               , msgIov     = iovsPtr
               , msgIovLen  = fromIntegral iovsLen

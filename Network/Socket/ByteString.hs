@@ -36,6 +36,7 @@ module Network.Socket.ByteString
 
     -- * Advanced send and recv
     , sendMsg
+    , sendMsgNoAddr
     , recvMsg
     ) where
 

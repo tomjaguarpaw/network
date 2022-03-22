@@ -33,6 +33,7 @@ module Network.Socket.ByteString.IO
 
     -- * Advanced send and recv
     , sendMsg
+    , sendMsgNoAddr
     , recvMsg
     , MsgFlag(..)
     , Cmsg(..)
@@ -304,6 +305,17 @@ sendMsg :: Socket       -- ^ Socket
 sendMsg _ _    []  _ _ = return 0
 sendMsg s addr bss cmsgs flags = withBufSizs bss $ \bufsizs ->
     sendBufMsg s addr bufsizs cmsgs flags
+
+-- | Send data to the socket using sendmsg(2).
+sendMsgNoAddr
+        :: Socket       -- ^ Socket
+        -> [ByteString] -- ^ Data to be sent
+        -> [Cmsg]       -- ^ Control messages
+        -> MsgFlag      -- ^ Message flags
+        -> IO Int       -- ^ The length actually sent
+sendMsgNoAddr _ []  _ _ = return 0
+sendMsgNoAddr s bss cmsgs flags = withBufSizs bss $ \bufsizs ->
+    sendBufMsgNoAddr s bufsizs cmsgs flags
 
 -- | Receive data from the socket using recvmsg(2).
 recvMsg :: Socket  -- ^ Socket
